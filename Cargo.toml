@@ -1,0 +1,25 @@
+[package]
+name = "Rust_exam_game"
+version = "0.4.0"
+edition = "2021"
+
+[dependencies]
+bevy = { version = "0.8.0-dev", default-features = false, features = ["png", "bevy_winit", "bevy_render"]}
+bevy_ascii_terminal = "=0.11.0"
+sark_grids = "=0.5.0"
+sark_pathfinding = "=0.2.0"
+adam_fov_rs = "0.2"
+rand = "=0.8.4"
+ron = "0.7"
+serde = "=1.0.117"
+bracket-random = "=0.8.2"
+interpolation = "0.2.0"
+astar = "4.0.0"
+controlled_astar = "1.0.1"
+
+[patch.crates-io]
+wgpu-hal = { path = "patches/wgpu-hal" }
+
+[profile.release]
+opt-level = 's'
+lto = true
