@@ -1,32 +1,120 @@
+version: '3.9'
+
 services:
-  mysql:
-    image: mysql:latest
-    container_name: mysql
+  # PostgreSQL Database
+  postgres:
+    image: postgres:latest
+    container_name: postgres
     ports:
-      - "3306:3306"
+      - "5432:5432"
     environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_DATABASE: mydb
-      MYSQL_USER: user
-      MYSQL_PASSWORD: userpassword
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: userpassword
+      POSTGRES_DB: mydb
     volumes:
-      - mysql_data:/var/lib/mysql
+      - pg_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
 
-  mongodb:
-    image: mongo:latest
-    container_name: mongodb
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo_data:/data/db
-
+  # Redis Database
   redis:
     image: redis:latest
     container_name: redis
     ports:
       - "6379:6379"
 
+  # MongoDB Config Server
+  cfgsvr1:
+    container_name: cfgsvr1
+    image: mongo
+    command: mongod --configsvr --replSet cfgrs --port 27017 --dbpath /data/db
+    ports:
+      - 40001:27017
+    volumes:
+      - cfgsvr1:/data/db
+
+  cfgsvr2:
+    container_name: cfgsvr2
+    image: mongo
+    command: mongod --configsvr --replSet cfgrs --port 27017 --dbpath /data/db
+    ports:
+      - 40002:27017
+    volumes:
+      - cfgsvr2:/data/db
+
+  # MongoDB Shard 1 (Replica Set)
+  shard1svr1:
+    container_name: shard1svr1
+    image: mongo
+    command: mongod --shardsvr --replSet shard1rs --port 27017 --dbpath /data/db
+    ports:
+      - 50001:27017
+    volumes:
+      - shard1svr1:/data/db
+
+  shard1svr2:
+    container_name: shard1svr2
+    image: mongo
+    command: mongod --shardsvr --replSet shard1rs --port 27017 --dbpath /data/db
+    ports:
+      - 50002:27017
+    volumes:
+      - shard1svr2:/data/db
+
+  shard1svr3:
+    container_name: shard1svr3
+    image: mongo
+    command: mongod --shardsvr --replSet shard1rs --port 27017 --dbpath /data/db
+    ports:
+      - 50003:27017
+    volumes:
+      - shard1svr3:/data/db
+
+  # MongoDB Shard 2 (Replica Set)
+  shard2svr1:
+    container_name: shard2svr1
+    image: mongo
+    command: mongod --shardsvr --replSet shard2rs --port 27017 --dbpath /data/db
+    ports:
+      - 50004:27017
+    volumes:
+      - shard2svr1:/data/db
+
+  shard2svr2:
+    container_name: shard2svr2
+    image: mongo
+    command: mongod --shardsvr --replSet shard2rs --port 27017 --dbpath /data/db
+    ports:
+      - 50005:27017
+    volumes:
+      - shard2svr2:/data/db
+
+  shard2svr3:
+    container_name: shard2svr3
+    image: mongo
+    command: mongod --shardsvr --replSet shard2rs --port 27017 --dbpath /data/db
+    ports:
+      - 50006:27017
+    volumes:
+      - shard2svr3:/data/db
+
+
+  # MongoDB Router (Mongos)
+  mongos:
+    container_name: mongos
+    image: mongo
+    command: mongos --configdb cfgrs/cfgsvr1:27017,cfgsvr2:27017 --bind_ip_all --port 27017
+    ports:
+      - 60000:27017
+
+
 volumes:
-  mysql_data:
-  mongo_data:
+  pg_data:
+  redis_data:
+  cfgsvr1: {}
+  cfgsvr2: {}
+  shard1svr1: {}
+  shard1svr2: {}
+  shard1svr3: {}
+  shard2svr1: {}
+  shard2svr2: {}
+  shard2svr3: {}
