@@ -1,8 +1,0 @@
-exit
-rs.status()
-rs.initiate()
-exit
-});
-  members: [{ _id: 0, host: "shard2-a:27017" }]
-  _id: "shard2",
-rs.initiate({
