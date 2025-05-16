@@ -59,7 +59,7 @@ when that is done make sure there is a primary and two secondary server (you mig
 
 rs.status()
 
-last think the the start server start by exec into it:
+Lastly, to start the mongos router, run:
 
 docker exec -it mongos mongosh
 
