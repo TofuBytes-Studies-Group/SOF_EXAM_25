@@ -1,24 +1,25 @@
 use bevy::{
-    math::{IVec2},
+    math::IVec2,
     prelude::*,
-    utils::HashSet,
 };
-use bevy_ascii_terminal::Side;
-use rand::{prelude::{StdRng, ThreadRng}, Rng, SeedableRng};
-use sark_grids::Grid;
+use std::collections::HashSet;
 
-use crate::{config::{MapGenSettings}, monster::MonsterBundle, player::{Player}, shapes::Rect, GAME_SIZE, movement::Position};
+use rand::{prelude::StdRng, Rng, SeedableRng};
+use sark_grids::{Grid, SizedGrid};
+
+use crate::{config::MapGenSettings, monster::MonsterBundle, movement::Position, player::Player, shapes::Rect, AppState, GAME_SIZE};
+use crate::player::PlayerSpawnSet;
+use crate::visibility::{MapMemory, MapView};
 
 pub struct MapGenPlugin;
 
 pub const MAP_GEN_SETUP_LABEL: &str = "MAP_GEN_SETUP";
-
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct MapGenSetupSet;
 impl Plugin for MapGenPlugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system(setup
-            //.after(PLAYER_SETUP_LABEL)
-            .label(MAP_GEN_SETUP_LABEL)
-        );
+        app.configure_sets(OnEnter(AppState::InGame), MapGenSetupSet.after(PlayerSpawnSet))
+            .add_systems(OnEnter(AppState::InGame), setup.in_set(MapGenSetupSet));
     }
 }
 
@@ -38,7 +39,7 @@ fn setup(
     //settings.map_size;
 
     //let rng = StdRng::seed_from_u64(settings.seed);
-    let rng = StdRng::from_rng(ThreadRng::default()).unwrap();
+    let mut rng = StdRng::seed_from_u64(settings.seed);
 
     let player = q_player.get_single().map_or_else(|_|None,|(e,_)|Some(e));
     let entities = MapGenEntities {
@@ -47,6 +48,24 @@ fn setup(
 
     MapGenerator::build(&mut commands, settings, rng, entities);
 }
+#[derive(Clone, Copy, Debug, PartialEq, Hash)]
+pub enum Side {
+    Top,
+    Bottom,
+    Left,
+    Right,
+}
+impl Map {
+    pub fn side_index(&self, side: Side) -> u32 {
+        match side {
+            Side::Left => 0,
+            Side::Top => 0,
+            Side::Right => (self.0.width() - 1) as u32,
+            Side::Bottom => (self.0.height() - 1) as u32,
+        }
+    }
+}
+
 
 /// A tile on the [Map].
 #[derive(Eq, PartialEq, Clone, Copy)]
@@ -81,7 +100,7 @@ impl MapGenerator {
         mut rng: StdRng,
         entities: MapGenEntities,
     ) {
-        let mut map = Map(Grid::default(settings.map_size));
+        let mut map = Map(Grid::new(settings.map_size));
         let mut rooms: Vec<Rect> = Vec::with_capacity(50);
 
         generate_rooms(&mut map, &settings, &mut rng, &mut rooms);
@@ -98,15 +117,26 @@ impl MapGenerator {
 
         map.place_monsters(commands, &settings, &mut rng, &mut placed);
 
-        commands.spawn().insert(map.map);
+        commands.spawn(map.map);
     }
 
     pub fn place_player(&self, commands: &mut Commands, player: Entity) {
         let p = self.rooms[0].center();
+        let mut entity = commands.entity(player);
 
         // Set the player's position
-        commands.entity(player).insert(Position::from(p));
+        entity.insert(Position::from(p));
+        
+        let size = self.map.0.size();
+        let dims = size.to_array();
+        let len = (size.x * size.y) as usize;
+        
+        commands.entity(player)
+            .insert(MapView ( Grid::new(dims) ))
+            .insert(MapMemory ( vec![false; len] ));
+        
         println!("Setting player position to {}", p);
+        println!("Player FOV & Memory initialized to {}×{} ({} cells)", size.x, size.y, len);
     }
 
     pub fn place_monsters(
@@ -134,7 +164,7 @@ impl MapGenerator {
                     monster.movable.position = p.into();
                     placed.insert(p);
 
-                    commands.spawn_bundle(monster);
+                    commands.spawn(monster);
 
                     break;
                 }
@@ -156,12 +186,36 @@ fn generate_rooms(
     rng: &mut StdRng,
     rooms: &mut Vec<Rect>,
 ) {
-    for _ in 0..settings.iterations {
-        let w = rng.gen_range(settings.room_size.clone());
-        let h = rng.gen_range(settings.room_size.clone());
+    // create a guaranteed starting room
+    let smallest_u = settings.room_size.start;
+    let smallest = smallest_u as i32;
 
-        let x = rng.gen_range(2..map.0.side_index(Side::Right) as u32 - w - 1);
-        let y = rng.gen_range(2..map.0.side_index(Side::Top) as u32 - h - 1);
+    let map_width  = map.0.width() as i32;
+    let map_height = map.0.height() as i32;
+    let center_x   = map_width  / 2;
+    let center_y   = map_height / 2;
+    
+    let first_room = Rect::from_position_size(
+        (center_x, center_y),
+        (smallest, smallest)
+    );
+    build_room(map, &first_room);
+    rooms.push(first_room);
+    
+    for _ in 0..settings.iterations {
+        let w = rng.random_range(settings.room_size.clone());
+        let h = rng.random_range(settings.room_size.clone());
+
+        let max_x = map.side_index(Side::Right).saturating_sub(w + 1);
+        let max_y = map.side_index(Side::Top).saturating_sub(h + 1);
+
+        if max_x <= 2 || max_y <= 2 {
+            // Skip this iteration if the room won't fit
+            continue;
+        }
+
+        let x = rng.random_range(2..=max_x);
+        let y = rng.random_range(2..=max_y);
 
         let new_room = Rect::from_position_size((x as i32, y as i32), (w as i32, h as i32));
 
@@ -225,5 +279,35 @@ fn build_vertical_tunnel(map: &mut Map, y1: i32, y2: i32, x: i32) {
 
     for y in min..=max {
         map.0[ [x as u32, y as u32] ] = MapTile::Floor;
+    }
+}
+#[derive(Resource, Deref, DerefMut, Default)]
+pub struct PathMap2d {
+    grid: Grid<bool>,
+}
+
+impl PathMap2d {
+    pub fn new(width: usize, height: usize) -> Self {
+        Self {
+            grid: Grid::new([width, height]),
+        }
+    }
+
+    pub fn grid_mut(&mut self) -> &mut Grid<bool> {
+        &mut self.grid
+    }
+
+    pub fn grid(&self) -> &Grid<bool> {
+        &self.grid
+    }
+
+    pub fn size(&self) -> UVec2 {
+        self.grid.size()
+    }
+
+    pub fn clear(&mut self) {
+        for cell in self.grid.iter_mut() {
+            *cell = false;
+        }
     }
 }

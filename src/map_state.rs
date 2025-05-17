@@ -2,21 +2,17 @@ use bevy::prelude::*;
 use sark_grids::Grid;
 use sark_pathfinding::*;
 
-use crate::{
-    map::{Map, MapTile},
-    movement::Position,
-};
+use crate::{map::{Map, MapTile}, movement::Position, AppState};
+use crate::PathMap2dExt::PathMap2dExt;
 
-pub const UPDATE_MAP_STATE_SYSTEM_LABEL: &str = "update_map_state_system";
-
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct UpdateMapStateSet;
 pub struct MapStatePlugin;
 
 impl Plugin for MapStatePlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(
-            update_map_state_system
-                .label(UPDATE_MAP_STATE_SYSTEM_LABEL),
-        )
+        app.configure_sets(Update, UpdateMapStateSet.run_if(in_state(AppState::InGame)))
+            .add_systems(Update, update_map_state_system.in_set(UpdateMapStateSet))
             .init_resource::<MapObstacles>()
             .init_resource::<MapActors>();
     }
@@ -26,6 +22,7 @@ impl Plugin for MapStatePlugin {
 #[derive(Component, Default)]
 pub struct PathBlocker;
 
+#[derive(Resource)]
 pub struct MapObstacles(pub PathMap2d);
 
 impl Default for MapObstacles {
@@ -34,12 +31,14 @@ impl Default for MapObstacles {
     }
 }
 
-#[derive(Component, Default)]
+#[derive(Resource)]
 pub struct MapActors(pub Grid<Option<Entity>>);
 
-fn get_pathmap_grid_mut(map: &mut PathMap2d) -> &mut Grid<bool> {
-    unsafe { &mut *(map as *mut PathMap2d as *mut Grid<bool>) }
-}
+impl Default for MapActors {
+        fn default() -> Self {
+            Self(Grid::new([0, 0]))
+        }
+    }
 
 fn update_map_state_system(
     q_moved_actors: Query<&Position, (With<PathBlocker>, Changed<Position>)>,
@@ -55,27 +54,40 @@ fn update_map_state_system(
         return;
     }
 
-    if let Ok(map) = q_map.get_single() {
+    if let Ok(map) = q_map.single() {
         if UVec2::from_array(<[u32; 2]>::from(blockers.0.size())) != map.0.size() {
             blockers.0 = PathMap2d::new(map.0.size().to_array());
         }
 
-        if entities.0.len() != map.0.len() {
-            entities.0 = Grid::default(map.0.size());
+        if entities.0.width() * entities.0.height() != map.0.tile_count() {
+            entities.0 = Grid::new(map.0.size());
         }
 
+        let grid = blockers.0.grid_mut();
+        let grid_len = grid.width() * grid.height();
+
         for (i, tile) in map.0.iter().enumerate() {
-            get_pathmap_grid_mut(&mut blockers.0)[i] = *tile == MapTile::Wall;
+            if i < grid_len {
+                grid[i] = *tile == MapTile::Wall;
+            }
         }
+
 
         for entry in entities.0.iter_mut() {
             *entry = None;
         }
 
+        let entities_len = entities.0.width() * entities.0.height();
+
         for (entity, pos) in q_blockers.iter() {
-            let i = map.0.pos_to_index(pos.0);
-            get_pathmap_grid_mut(&mut blockers.0)[i] = true;
-            entities.0[i] = Some(entity);
+            let i = map.0.transform_lti(pos.0);
+            if i < grid_len && i < entities_len {
+                blockers.0.grid_mut()[i] = true;
+                entities.0[i] = Some(entity);
+            } else {
+                // Optionally log or warn about the out-of-bounds index
+                warn!("Entity position {:?} out of bounds for map size {:?}", pos.0, map.0.size());
+            }
         }
     }
 }

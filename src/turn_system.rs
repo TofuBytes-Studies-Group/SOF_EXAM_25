@@ -1,17 +1,21 @@
 use bevy::prelude::*;
+use crate::AppState;
 
 pub struct TurnSystemPlugin;
 
-/// Label for the turn begin system. Occurs in [CoreStage::PreUpdate].
-pub const TURN_BEGIN_SYSTEM_LABEL: &str = "turnbegin";
-/// Label for the turn end system. Occurs in [CoreStage::PostUpdate].
-pub const TURN_END_SYSTEM_LABEL: &str = "turnend";
+
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct TurnBeginSet;
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct TurnEndSet;
 
 impl Plugin for TurnSystemPlugin {
     fn build(&self, app: &mut App) {
         app
-        .add_system_to_stage(CoreStage::PreUpdate, turn_begin_system.label(TURN_BEGIN_SYSTEM_LABEL))
-        .add_system_to_stage(CoreStage::PostUpdate, turn_end_system.label(TURN_END_SYSTEM_LABEL));
+            .configure_sets(Update, TurnBeginSet.run_if(in_state(AppState::InGame)))
+            .configure_sets(Update, TurnEndSet.after(TurnBeginSet).run_if(in_state(AppState::InGame)))
+            .add_systems(Update, turn_begin_system.in_set(TurnBeginSet))
+            .add_systems(Update, turn_end_system.in_set(TurnEndSet));
     }
 }
 

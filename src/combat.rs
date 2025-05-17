@@ -2,23 +2,33 @@ use bevy::prelude::*;
 use bracket_random::prelude::DiceType;
 use sark_grids::Grid;
 use sark_pathfinding::PathMap2d;
-use crate::{ui::PrintLog, map_state::{MapObstacles, MapActors}, movement::Position};
+use crate::{ui::PrintLog, map_state::{MapObstacles, MapActors}, movement::Position, AppState};
+use bevy::app::PostUpdate;
 
-pub const RESOLVE_TARGET_EVENTS_SYSTEM_LABEL: &str = "resolve_target_events";
-pub const DEATH_SYSTEM_LABEL: &str = "death_system";
 
 pub struct CombatPlugin;
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct ResolveTargetEventsSet;
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct DeathSystemSet;
 
 impl Plugin for CombatPlugin {
     fn build(&self, app: &mut App) {
         app
-        .add_event::<TargetEvent>()
-        .add_event::<ActorKilledEvent>()
-        .add_system_to_stage(CoreStage::PostUpdate, resolve_target_events
-            .label(RESOLVE_TARGET_EVENTS_SYSTEM_LABEL))
-        .add_system_to_stage(CoreStage::PostUpdate, death_system
-            .after(RESOLVE_TARGET_EVENTS_SYSTEM_LABEL)
-            .label(DEATH_SYSTEM_LABEL));
+            .add_event::<TargetEvent>()
+            .add_event::<ActorKilledEvent>()
+            .configure_sets(
+                PostUpdate, 
+                ResolveTargetEventsSet.run_if(in_state(AppState::InGame)),
+            )
+            .configure_sets(
+                PostUpdate, 
+                DeathSystemSet
+                    .after(ResolveTargetEventsSet)
+                    .run_if(in_state(AppState::InGame)),
+            )
+            .add_systems(PostUpdate, resolve_target_events.in_set(ResolveTargetEventsSet))
+            .add_systems(PostUpdate, death_system.in_set(DeathSystemSet));
     }
 }
 
@@ -50,13 +60,14 @@ pub enum ActorEffect {
     Heal(i32),
     Damage(i32),
 }
-
+#[derive(Event)]
 pub struct TargetEvent {
     pub actor: Entity,
     pub target: Entity,
     pub effect: ActorEffect,
 }
 
+#[derive(Event)]
 pub struct ActorKilledEvent {
     name: String,
 }
@@ -68,7 +79,7 @@ fn resolve_target_events(
     mut log: ResMut<PrintLog>,
     mut target_events: EventReader<TargetEvent>,
 ) {
-    for ev in target_events.iter() {
+    for ev in target_events.read() {
         let tar = ev.target;
         let actor = ev.actor;
         match ev.effect {
@@ -131,7 +142,7 @@ fn death_system(
             grid[pos] = false;
             blockers.0[pos] = None;
 
-            evt_killed.send(ActorKilledEvent {
+            evt_killed.write(ActorKilledEvent {
                 name: name.to_string(),
             });
 
