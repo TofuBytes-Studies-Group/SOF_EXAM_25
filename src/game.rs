@@ -4,23 +4,33 @@
 use bevy::prelude::*;
 use bevy_ascii_terminal::{color, StringDecorator, Terminal, TerminalBorder};
 use crate::{AppState, GlobalTerminal, GAME_SIZE, VIEWPORT_SIZE};
+use crate::main_menu::CharacterName;
 
 // Spawn the Lore (intro) terminal on entering Lore state
-pub fn enter_lore(mut query: Query<&mut Terminal, With<GlobalTerminal>>) {
+pub fn enter_lore(mut query: Query<&mut Terminal, With<GlobalTerminal>>, character_name: Res<CharacterName>,
+) {
     if let Ok(mut term) = query.single_mut() {
         term.clear();
-        term.put_string([0, 2], "============= < LORE ARCHIVE > =============".fg(color::YELLOW));
-        term.put_string([0, 3], ":: FILE: DNK-34 // PROTOCOL STATUS: ACTIVE  ".fg(color::LIGHT_GREEN));
-        term.put_string([0, 4], "============================================".fg(color::WHITE));
-        term.put_string([0, 6], "Beneath the stone of the Northern Reach lies the".fg(color::LIGHT_GRAY));
-        term.put_string([0, 7], "forgotten fortress-vault DNK-34. Forged by Iron-".fg(color::LIGHT_GRAY));
-        term.put_string([0, 8], "Priests in an age of steam and rune, its halls are".fg(color::LIGHT_GRAY));
-        term.put_string([0, 9], "now ruled by rust-caked automatons following the".fg(color::LIGHT_GRAY));
-        term.put_string([0, 10], "last order ever issued:  **DENY ALL INTRUDERS**.".fg(color::LIGHT_GRAY));
-        term.put_string([0, 11], "Within lie arsenals of brass lightning, tomes of".fg(color::LIGHT_GRAY));
-        term.put_string([0, 12], "forbidden craft, and the reactor-heart whose ash".fg(color::LIGHT_GRAY));
-        term.put_string([0, 13], "still powers the iron guardians...".fg(color::LIGHT_GRAY));
-        term.put_string([0, 16], ">>       PRESS [ENTER] TO START       <<".fg(color::GREEN));
+        term.resize([50,30]);
+        term.put_string([0, 2], "================ < LORE ARCHIVE > ================".fg(color::YELLOW));
+        term.put_string([0, 4], ":: FILE: DNK-34 // PROTOCOL STATUS: ACTIVE        ".fg(color::LIGHT_GREEN));
+        term.put_string([0, 6], "==================================================".fg(color::WHITE));
+        term.put_string([0, 8], "Beneath the stone of the Northern Reach lies the".fg(color::LIGHT_GRAY));
+        term.put_string([0, 9], "forgotten fortress-vault DNK-34. Forged by Iron-".fg(color::LIGHT_GRAY));
+        term.put_string([0, 10], "Priests in an age of steam and rune, its halls are".fg(color::LIGHT_GRAY));
+        term.put_string([0, 11], "now ruled by rust-caked automatons following the".fg(color::LIGHT_GRAY));
+        term.put_string([0, 12], "last order ever issued:  **DENY ALL INTRUDERS**.".fg(color::LIGHT_GRAY));
+        term.put_string([0, 13], "Within lie arsenals of brass lightning, tomes of".fg(color::LIGHT_GRAY));
+        term.put_string([0, 14], "forbidden craft, and the reactor-heart whose ash".fg(color::LIGHT_GRAY));
+        term.put_string([0, 15], "still powers the iron guardians...".fg(color::LIGHT_GRAY));
+        term.put_string([0, 16], "as all challengers before him has fallen..".fg(color::LIGHT_GRAY));
+        term.put_string([0, 17], "a new adventurer challenges the vault".fg(color::LIGHT_GRAY));
+        term.put_string([0, 19], "a Hero only known as:".fg(color::LIGHT_GRAY));
+
+        let name_display = format!("{}", character_name.0);
+        term.put_string([21, 18], name_display.fg(color::GREEN));
+
+        term.put_string([0, 22], ">>        Press [ENTER] Breach the vault        <<".fg(color::GREEN));
     } else {
         warn!("Global terminal not found ENTER LORE");
     }

@@ -1,6 +1,8 @@
 // menu.rs
 // Systems for MainMenu and SettingsMenu (and submenus)
 
+use bevy::input::ButtonState;
+use bevy::input::keyboard::{Key, KeyboardInput};
 use bevy::prelude::*;
 use bevy_ascii_terminal::{color, StringDecorator, Terminal, TerminalBorder};
 use crate::{AppState, GlobalTerminal};
@@ -13,6 +15,11 @@ pub struct SettingsMenuTag;
 pub struct DisplaySettingsTag;
 #[derive(Component)]
 pub struct SoundSettingsTag;
+#[derive(Component)]
+pub struct CharacterCreationTag;
+#[derive(Resource, Default)]
+pub struct CharacterName(pub String);
+
 
 #[derive(Resource, Default)]
 pub struct PendingState(pub Option<AppState>);
@@ -20,13 +27,10 @@ pub struct PendingState(pub Option<AppState>);
 pub fn enter_menu(mut query: Query<&mut Terminal, With<GlobalTerminal>>) {
     if let Ok(mut term) = query.single_mut() {
         term.clear();
-        term.put_string([0, 2], "========================================".fg(color::WHITE));
-        term.put_string([0, 3], ":: DUNGEON INTERFACE - MAIN MENU        ".fg(color::LIGHT_GREEN));
-        term.put_string([0, 4], "========================================".fg(color::WHITE));
-        term.put_string([0, 6], "  > [1] DESCEND INTO SECTOR DNK-34      ".fg(color::GREEN));
-        term.put_string([0, 8], "  > [2] CONFIGURE TERMINAL SETTINGS     ".fg(color::GREEN));
-        term.put_string([0, 11],"________________________________________".fg(color::WHITE));
-        term.put_string([0, 13],"  > [Esc] EXIT                          ".fg(color::RED));
+        term.put_string([0, 2],  "====================== MENU ======================".fg(color::YELLOW));
+        term.put_string([0, 5],  "          [1] Descend into Sector DNK-34          ".fg(color::GREEN));
+        term.put_string([0, 7],  "          [2] Configure Terminal Settings         ".fg(color::WHITE));
+        term.put_string([0, 10], "          [Esc] Quit                              ".fg(color::WHITE));
     } else {
         warn!("Global terminal not found in MAIN MENU");
     }
@@ -41,8 +45,7 @@ pub fn menu_input(
     mut pending: ResMut<PendingState>,
 ) {
     if keyboard.just_pressed(KeyCode::Digit1) {
-        // Go to Lore (then InGame)
-        pending.0 = Some(AppState::Lore);
+        pending.0 = Some(AppState::CharacterCreation);
     }
     if keyboard.just_pressed(KeyCode::Digit2) {
         // Go to Settings menu
@@ -70,14 +73,62 @@ pub fn exit_menu(mut commands: Commands, query: Query<Entity, With<MainMenuTag>>
     }*/
 }
 
+pub fn enter_character_creation(mut query: Query<&mut Terminal, With<GlobalTerminal>>, mut character_name: ResMut<CharacterName>) {
+    if let Ok(mut term) = query.single_mut() {
+        term.clear();
+        term.put_string([0, 2], "=============== CHARACTER CREATION ===============".fg(color::YELLOW));
+        term.put_string([0, 4], "            Enter your character name:            ".fg(color::WHITE));
+        term.put_string([0, 6],"              >".fg(color::WHITE));
+        term.put_string([15, 6], character_name.0.clone());
+        term.put_string([0, 8], "             Press [Enter] to confirm             ".fg(color::GREEN));
+    }
+}
+
+pub fn character_creation_input(
+    mut evr_kbd: EventReader<KeyboardInput>,
+    mut char_name: ResMut<CharacterName>,
+    mut next_state: ResMut<NextState<AppState>>,
+    mut query: Query<&mut Terminal, With<GlobalTerminal>>,
+) {
+    if let Ok(mut term) = query.single_mut() {
+        for ev in evr_kbd.read() {
+            if ev.state == ButtonState::Released {
+                continue;
+            }
+            match &ev.logical_key {
+                Key::Backspace => {
+                    char_name.0.pop();
+                }
+                Key::Enter => {
+                    if !char_name.0.is_empty() {
+                        next_state.set(AppState::Lore);
+                    }
+                }
+                Key::Character(s) => {
+                    if s.chars().all(|c| !c.is_control()) && char_name.0.len() < 20 {
+                        char_name.0.push_str(s);
+                    }
+                }
+                _ => {}
+            }
+        }
+        term.clear();
+        term.put_string([0, 2], "=============== CHARACTER CREATION ===============".fg(color::YELLOW));
+        term.put_string([0, 4], "            Enter your character name:            ".fg(color::WHITE));
+        term.put_string([0, 6],"              >".fg(color::WHITE));
+        term.put_string([15, 6],char_name.0.clone());
+        term.put_string([0, 8], "             Press [Enter] to confirm             ".fg(color::GREEN));
+    }
+}
+
 // Spawn the settings menu terminal on entering SettingsMenu state
 pub fn enter_settings(mut query: Query<&mut Terminal, With<GlobalTerminal>>) {
     if let Ok(mut term) = query.single_mut() {
         term.clear();
-        term.put_string([0, 2], "=== SETTINGS ===".fg(color::YELLOW));
-        term.put_string([0, 4], "[1] Display Settings".fg(color::WHITE));
-        term.put_string([0, 5], "[2] Sound Settings".fg(color::WHITE));
-        term.put_string([0, 6], "[Esc] Back".fg(color::WHITE));
+        term.put_string([0, 2],  "==================== SETTINGS ====================".fg(color::YELLOW));
+        term.put_string([0, 5],  "               [1] Display Settings               ".fg(color::WHITE));
+        term.put_string([0, 7],  "               [2] Sound Settings                 ".fg(color::WHITE));
+        term.put_string([0, 10], "               [Esc] Back                         ".fg(color::WHITE));
     } else {
         warn!("Global terminal not found ENTER SETTINGS");
     }
@@ -110,8 +161,8 @@ pub fn exit_settings(mut commands: Commands, query: Query<Entity, With<Terminal>
 pub fn enter_display(mut query: Query<&mut Terminal, With<GlobalTerminal>>) {
     if let Ok(mut term) = query.single_mut() {
         term.clear();
-        term.put_string([0, 2], "--- DISPLAY SETTINGS ---".fg(color::YELLOW));
-        term.put_string([0, 4], "Press [Esc] to go back".fg(color::WHITE));
+        term.put_string([0, 2], "---------------- DISPLAY SETTINGS ----------------".fg(color::YELLOW));
+        term.put_string([0, 5], "              Press [Esc] to go back              ".fg(color::WHITE));
     } else {
         warn!("Global terminal not found in ENTER DISPLAY");
     }
@@ -136,8 +187,8 @@ pub fn exit_display(mut commands: Commands, query: Query<Entity, With<Terminal>>
 pub fn enter_sound(mut query: Query<&mut Terminal, With<GlobalTerminal>>) {
     if let Ok(mut term) = query.single_mut() {
         term.clear();
-        term.put_string([0, 2], "--- SOUND SETTINGS ---".fg(color::YELLOW));
-        term.put_string([0, 4], "Press [Esc] to go back".fg(color::WHITE));
+        term.put_string([0, 2], "----------------- SOUND SETTINGS -----------------".fg(color::YELLOW));
+        term.put_string([0, 5], "              Press [Esc] to go back              ".fg(color::WHITE));
     } else {
         warn!("Global terminal not  in ENTER SOUND");
     }

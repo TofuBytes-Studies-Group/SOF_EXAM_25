@@ -10,7 +10,7 @@ use bevy_inspector_egui::bevy_egui::EguiPlugin;
 use rand::{Rng, rng};
 use sark_grids::GridSize;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
-use crate::main_menu::{apply_pending_state, PendingState};
+use crate::main_menu::{apply_pending_state, CharacterName, PendingState};
 //use crate::lore::lore::setup_lore;
 //use crate::main_menu::{setup, GameState};
 //use crate::main_menu::game::game_setup;
@@ -54,6 +54,7 @@ enum AppState {
     #[default]
     Splash,
     MainMenu,
+    CharacterCreation,
     SettingsMenu,
     DisplaySettings,
     SoundSettings,
@@ -80,6 +81,8 @@ fn main() {
         .add_plugins(ui::UiPlugin)
         // GAME PLUGINS END
         .insert_resource(PendingState::default())
+        .insert_resource(CharacterName::default())
+
 
         .add_systems(Startup, setup_camera)
 
@@ -97,6 +100,11 @@ fn main() {
         .add_systems(OnExit(AppState::MainMenu), main_menu::exit_menu)
 
         .add_systems(Update, apply_pending_state)
+
+        // Character creation menu
+        .add_systems(OnEnter(AppState::CharacterCreation), main_menu::enter_character_creation)
+        .add_systems(Update, main_menu::character_creation_input.run_if(in_state(AppState::CharacterCreation)))
+
 
 
         // Settings menu
@@ -130,25 +138,25 @@ pub struct GlobalTerminal;
 // Spawn a single TerminalCamera to cover all states:contentReference[oaicite:6]{index=6}
 fn setup_terminal(mut commands: Commands) {
     commands.spawn((
-        Terminal::new([40, 20])
-            .with_string([0, 0], "========================================".fg(color::WHITE))
-            .with_string([0, 1], ":: DUNGEON MODULE: DNK-34              ".fg(color::LIGHT_GREEN))
-            .with_string([0, 2], ":: ORC CLUSTER ENGAGED - SECTOR 12    ".fg(color::LIGHT_GREEN))
-            .with_string([0, 3], "========================================".fg(color::WHITE))
-            .with_string([0, 4], "> Boot sequence............. OK        ".fg(color::LIGHT_GREEN))
-            .with_string([0, 5], "> Loading terrain map....... ██████ 85%".fg(color::LIGHT_GREEN))
-            .with_string([0, 6], "> Signal interference....... DETECTED  ".fg(color::DARK_ORANGE))
-            .with_string([0, 7], "> Orc presence.............. CONFIRMED ".fg(color::DARK_ORANGE))
-            .with_string([0, 8], "> Goblin presence........... CONFIRMED ".fg(color::DARK_ORANGE))
-            .with_string([0,10], "█     █  ███  ████  █    █ █ █    █  ███".fg(color::DARK_RED))
-            .with_string([0,11], "█     █ █   █ █   █ ██   █ █ ██   █ █   ".fg(color::DARK_RED))
-            .with_string([0,12], "█  █  █ █████ ████  █ █  █ █ █ █  █ █ ██".fg(color::DARK_RED))
-            .with_string([0,13], "█ ███ █ █   █ █   █ █  █ █ █ █  █ █ █  █".fg(color::DARK_RED))
-            .with_string([0,14], "  █ █   █   █ █   █ █    █ █ █    █  ███".fg(color::DARK_RED))
-            .with_string([0,16], ">> CONTAMINATION LEVEL: 87%           ".fg(color::RED))
-            .with_string([0,17], ">> PROCEED WITH CAUTION               ".fg(color::RED))
-            .with_string([0,18], "=======================================".fg(color::WHITE))
-            .with_string([0,19], "[ENTER] Descend | [ESC] Override Boot".fg(color::GREEN)),
+        Terminal::new([50, 30])
+            .with_string([0, 0],  "==================================================".fg(color::WHITE))
+            .with_string([0, 2],  ":: DUNGEON MODULE: DNK-34                         ".fg(color::LIGHT_GREEN))
+            .with_string([0, 3],  ":: ORC CLUSTER ENGAGED - SECTOR 12                ".fg(color::LIGHT_GREEN))
+            .with_string([0, 5],  "==================================================".fg(color::WHITE))
+            .with_string([0, 7],  "> Boot sequence.............................. OK  ".fg(color::LIGHT_GREEN))
+            .with_string([0, 9], "> Loading terrain map............ ██████████ 85%  ".fg(color::LIGHT_GREEN))
+            .with_string([0, 11], "> Signal interference.................. DETECTED  ".fg(color::DARK_ORANGE))
+            .with_string([0, 13], "> Orc presence........................ CONFIRMED  ".fg(color::DARK_ORANGE))
+            .with_string([0, 15], "> Goblin presence..................... CONFIRMED  ".fg(color::DARK_ORANGE))
+            .with_string([0,17],  "  █     █   ██   ████   █    █  █  █    █   ████  ".fg(color::DARK_RED))
+            .with_string([0,18],  "  █     █  █  █  █   █  ██   █  █  ██   █  █      ".fg(color::DARK_RED))
+            .with_string([0,19],  "  █  █  █  ████  ████   █ █  █  █  █ █  █  █ ███  ".fg(color::DARK_RED))
+            .with_string([0,20],  "  █ ███ █  █  █  █   █  █  █ █  █  █  █ █  █   █  ".fg(color::DARK_RED))
+            .with_string([0,21],  "   █   █   █  █  █   █  █    █  █  █    █   ████  ".fg(color::DARK_RED))
+            .with_string([0,23],  ">> CONTAMINATION LEVEL: 87%                       ".fg(color::RED))
+            .with_string([0,25],  ">> PROCEED WITH CAUTION                           ".fg(color::RED))
+            .with_string([0,27],  "==================================================".fg(color::WHITE))
+            .with_string([0,29],  "         [ENTER] Descend || [ESC] To Quit         ".fg(color::GREEN)),
         TerminalBorder::single_line(),
         GlobalTerminal,
         Transform::default(),
