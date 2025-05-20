@@ -5,19 +5,23 @@ use bevy::prelude::*;
 use bevy_ascii_terminal::{terminal::Terminal, border::TerminalBorder, color, string::DecoratedString, StringDecorator, TerminalPlugins, Tile};
 use sark_grids::SizedGrid;
 use crate::{map::{Map, MapTile}, movement::Position, player::Player, visibility::{MapMemory, MapView}, GlobalTerminal, combat::ActorKilledEvent, AppState};
+use crate::map::MapGenSetupSet;
 
 pub const WALL_COLOR: Color = Color::srgb(0.866, 0.866, 0.882);
 pub const FLOOR_COLOR: Color = Color::srgb(0.602, 0.462, 0.325);
 
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 pub struct RenderSystemSet;
-
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct PostMapSetupSet;
 /// Plugin managing game rendering systems
 pub struct RenderPlugin;
 impl Plugin for RenderPlugin {
     fn build(&self, app: &mut App) {
         app
-            .add_systems(OnEnter(AppState::InGame), first_frame_render,);
+            .configure_sets(OnEnter(AppState::InGame), PostMapSetupSet.after(MapGenSetupSet))
+            .add_systems(OnEnter(AppState::InGame), first_frame_render.in_set(PostMapSetupSet));
+
         app
             .configure_sets(Update, RenderSystemSet.run_if(in_state(AppState::InGame)))
             .add_systems(Update, render.in_set(RenderSystemSet).run_if(should_render));
