@@ -156,8 +156,8 @@ pub fn save_player_after_creation(
 
         bevy::tasks::IoTaskPool::get().spawn(async move {
             match PlayerDb::create(db_client, &record.name, record.hp, record.max_hp, record.defense, record.strength).await {
-                Ok(p) => println!("✅ Saved player to DB: {:?}", p),
-                Err(e) => eprintln!("❌ Failed to save player: {}", e),
+                Ok(p) => println!("!!! Saved player to DB: {:?}", p),
+                Err(e) => eprintln!(">>X<< Failed to save player: {}", e),
             }
         }).detach();
     }
