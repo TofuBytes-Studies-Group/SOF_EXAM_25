@@ -6,6 +6,11 @@ use bevy::input::keyboard::{Key, KeyboardInput};
 use bevy::prelude::*;
 use bevy_ascii_terminal::{color, StringDecorator, Terminal, TerminalBorder};
 use crate::{AppState, GlobalTerminal};
+use crate::combat::{Defense, HitPoints, MaxHitPoints, Strength};
+use crate::dbs::playerdb;
+use crate::dbs::playerdb::PlayerDb;
+use crate::dbs::psqldb::Database;
+use crate::player::Player;
 
 #[derive(Component)]
 pub struct MainMenuTag;
@@ -120,6 +125,44 @@ pub fn character_creation_input(
         term.put_string([0, 8], "             Press [Enter] to confirm             ".fg(color::GREEN));
     }
 }
+
+#[derive(Resource, Default)]
+pub struct PlayerSaved(bool);
+
+pub fn save_player_after_creation(
+    mut saved: ResMut<PlayerSaved>,
+    char_name: Res<CharacterName>,
+    player_query: Query<(&HitPoints, &MaxHitPoints, &Defense, &Strength), With<Player>>,
+    psql: Res<Database>,
+) {
+    if saved.0 {
+        return; // Already saved
+    }
+
+    if let Ok((hp, max_hp, defense, strength)) = player_query.single() {
+        saved.0 = true; // Mark as saved
+
+        let record = playerdb::PlayerDb {
+            id: Default::default(),
+            name: char_name.0.clone(),
+            hp: hp.0,
+            max_hp: max_hp.0,
+            defense: defense.0,
+            strength: strength.0,
+            inventory_id: None,
+        };
+
+        let db_client = psql.client.clone();
+
+        bevy::tasks::IoTaskPool::get().spawn(async move {
+            match PlayerDb::create(db_client, &record.name, record.hp, record.max_hp, record.defense, record.strength).await {
+                Ok(p) => println!("✅ Saved player to DB: {:?}", p),
+                Err(e) => eprintln!("❌ Failed to save player: {}", e),
+            }
+        }).detach();
+    }
+}
+
 
 // Spawn the settings menu terminal on entering SettingsMenu state
 pub fn enter_settings(mut query: Query<&mut Terminal, With<GlobalTerminal>>) {

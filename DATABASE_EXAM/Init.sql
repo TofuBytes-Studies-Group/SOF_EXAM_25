@@ -19,7 +19,10 @@ CREATE TABLE IF NOT EXISTS weapon_inventory (
 CREATE TABLE IF NOT EXISTS player (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(100) NOT NULL,
-    health INT NOT NULL,
+    hp INT NOT NULL,
+    max_hp INT NOT NULL,
+    defense INT NOT NULL,
+    strength INT NOT NULL,
     inventory_id UUID,
     FOREIGN KEY (inventory_id) REFERENCES inventory(id)
 );

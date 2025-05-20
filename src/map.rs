@@ -18,8 +18,10 @@ pub const MAP_GEN_SETUP_LABEL: &str = "MAP_GEN_SETUP";
 pub struct MapGenSetupSet;
 impl Plugin for MapGenPlugin {
     fn build(&self, app: &mut App) {
-        app.configure_sets(OnEnter(AppState::InGame), MapGenSetupSet.after(PlayerSpawnSet))
-            .add_systems(OnEnter(AppState::InGame), setup.in_set(MapGenSetupSet));
+        app
+            .configure_sets(OnEnter(AppState::Lore), PlayerSpawnSet)
+            .configure_sets(OnEnter(AppState::Lore), MapGenSetupSet.after(PlayerSpawnSet))
+            .add_systems(OnEnter(AppState::Lore), setup.in_set(MapGenSetupSet));
     }
 }
 
@@ -104,6 +106,10 @@ impl MapGenerator {
         let mut rooms: Vec<Rect> = Vec::with_capacity(50);
 
         generate_rooms(&mut map, &settings, &mut rng, &mut rooms);
+        if rooms.is_empty() {
+            println!("No additional rooms were generated, using only the start room");
+        }
+
 
         let map = MapGenerator { map, rooms };
 
@@ -114,6 +120,9 @@ impl MapGenerator {
         }
 
         let mut placed: HashSet<IVec2> = HashSet::default();
+        if map.rooms.is_empty() {
+            panic!("Map generation failed: no rooms were created.");
+        }
 
         map.place_monsters(commands, &settings, &mut rng, &mut placed);
 
@@ -121,7 +130,10 @@ impl MapGenerator {
     }
 
     pub fn place_player(&self, commands: &mut Commands, player: Entity) {
-        let p = self.rooms[0].center();
+        let Some(room) = self.rooms.first() else {
+            panic!("Cannot place player: no rooms exist.");
+        };
+        let p = room.center();
         let mut entity = commands.entity(player);
 
         // Set the player's position
@@ -219,20 +231,20 @@ fn generate_rooms(
 
         let new_room = Rect::from_position_size((x as i32, y as i32), (w as i32, h as i32));
 
-        // //println!("Creating room {}", new_room);
+        println!("Creating room {}", new_room);
 
         let mut ok = true;
 
         for room in rooms.iter() {
             if new_room.overlaps(room) {
-                //println!("New room overlaps {}!", room);
+                println!("New room overlaps {}!", room);
                 ok = false;
                 break;
             }
         }
 
         if ok {
-            //println!("Building new room!");
+            println!("Building new room!");
             build_room(map, &new_room);
 
             if !rooms.is_empty() {

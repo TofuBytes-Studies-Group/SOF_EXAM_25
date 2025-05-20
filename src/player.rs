@@ -14,17 +14,27 @@ pub struct PlayerSpawnSet;
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app
-        .add_systems(OnEnter(AppState::InGame), spawn_player.in_set(PlayerSpawnSet))
-        //.add_startup_system(spawn_player.label(PLAYER_SETUP_LABEL))
-        .add_systems(Update, player_input.run_if(in_state(AppState::InGame)));
+            .init_resource::<PlayerSpawned>()
+            .add_systems(OnEnter(AppState::Lore), spawn_player.in_set(PlayerSpawnSet))
+            .add_systems(Update, player_input.run_if(in_state(AppState::InGame)));
 
     }
 }
 
+#[derive(Resource, Default)]
+struct PlayerSpawned(bool);
+
 fn spawn_player(
-    mut commands: Commands
+    mut commands: Commands,
+    mut spawned: ResMut<PlayerSpawned>,
+    existing_player: Query<(), With<Player>>,
 ) {
+    if spawned.0 || existing_player.single().is_ok() {
+        return;
+    }
+
     commands.spawn(PlayerBundle::default());
+    spawned.0 = true;
 }
 
 #[derive(Component, Default, Debug)]

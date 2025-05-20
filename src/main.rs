@@ -10,7 +10,13 @@ use bevy_inspector_egui::bevy_egui::EguiPlugin;
 use rand::{Rng, rng};
 use sark_grids::GridSize;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
-use crate::main_menu::{apply_pending_state, CharacterName, PendingState};
+use tokio_postgres::Error;
+use crate::combat::{Defense, HitPoints, MaxHitPoints, Strength};
+use crate::dbs::playerdb;
+use crate::dbs::playerdb::PlayerDb;
+use crate::dbs::psqldb::Database;
+use crate::main_menu::{apply_pending_state, save_player_after_creation, CharacterName, PendingState, PlayerSaved};
+use crate::player::Player;
 //use crate::lore::lore::setup_lore;
 //use crate::main_menu::{setup, GameState};
 //use crate::main_menu::game::game_setup;
@@ -48,6 +54,8 @@ pub const TEXT_COLOR: Color = Color::srgb(0.8, 0.8, 0.8);
 // Main application entrypoint and state setup
 
 mod game;
+mod dbs;
+
 // Define the application states
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq, States)]
 enum AppState {
@@ -62,7 +70,11 @@ enum AppState {
     InGame,
 }
 
-fn main() {
+#[tokio::main]
+async fn main() -> Result<(), Error> {
+    let psql = Database::connect().await.expect("Failed to connect to the database");
+
+
     App::new()
         // Standard Bevy and ASCII-terminal plugins
         .add_plugins((DefaultPlugins, TerminalPlugins))
@@ -82,6 +94,9 @@ fn main() {
         // GAME PLUGINS END
         .insert_resource(PendingState::default())
         .insert_resource(CharacterName::default())
+
+        .insert_resource(psql)
+        .insert_resource(PlayerSaved::default())
 
 
         .add_systems(Startup, setup_camera)
@@ -125,14 +140,17 @@ fn main() {
         // Lore screen
         .add_systems(OnEnter(AppState::Lore), game::enter_lore)
         .add_systems(Update, game::lore_input.run_if(in_state(AppState::Lore)))
+        .add_systems(OnExit(AppState::Lore), save_player_after_creation)
         .add_systems(OnExit(AppState::Lore), game::exit_lore)
 
         // In-game screen
-        .add_systems(OnEnter(AppState::InGame), game::enter_game)
+        //.add_systems(OnEnter(AppState::InGame), game::enter_game)
         .add_systems(Update, game::game_input.run_if(in_state(AppState::InGame)))
         .add_systems(OnExit(AppState::InGame), game::exit_game)
         .run();
+Ok(())
 }
+
 #[derive(Component)]
 pub struct GlobalTerminal;
 // Spawn a single TerminalCamera to cover all states:contentReference[oaicite:6]{index=6}
@@ -173,3 +191,6 @@ pub fn setup_splash_input(keyboard: Res<ButtonInput<KeyCode>>, mut next_state: R
         next_state.set(AppState::MainMenu);
     }
 }
+
+
+

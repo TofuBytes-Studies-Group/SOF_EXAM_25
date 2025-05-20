@@ -11,7 +11,7 @@ pub struct MapStatePlugin;
 
 impl Plugin for MapStatePlugin {
     fn build(&self, app: &mut App) {
-        app.configure_sets(Update, UpdateMapStateSet.run_if(in_state(AppState::InGame)))
+        app.configure_sets(Update, UpdateMapStateSet.run_if(in_state(AppState::Lore)))
             .add_systems(Update, update_map_state_system.in_set(UpdateMapStateSet))
             .init_resource::<MapObstacles>()
             .init_resource::<MapActors>();

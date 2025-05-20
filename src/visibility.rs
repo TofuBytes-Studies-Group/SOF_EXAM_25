@@ -13,9 +13,9 @@ use bevy::prelude::*;
         
         impl Plugin for VisibilityPlugin {
             fn build(&self, app: &mut App) {
-                app.configure_sets(Update, ViewSystemSet.run_if(in_state(AppState::InGame)))
-                    .add_systems(Update, view_system.in_set(ViewSystemSet).run_if(in_state(AppState::InGame)))
-                    .add_systems(Update, view_memory_system.after(ViewSystemSet).run_if(in_state(AppState::InGame)));
+                app.configure_sets(Update, ViewSystemSet.run_if(in_state(AppState::Lore)))
+                    .add_systems(Update, view_system.in_set(ViewSystemSet).run_if(in_state(AppState::Lore)))
+                    .add_systems(Update, view_memory_system.after(ViewSystemSet).run_if(in_state(AppState::Lore)));
             }
         }
         
