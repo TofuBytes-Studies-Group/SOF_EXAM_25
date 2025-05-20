@@ -1,11 +1,14 @@
-# Rust Exam W. Bevy Roguelike
+# Exam Project – Rust Game Development
 
-Rendering is done natively in bevy using the [bevy_ascii_terminal](https://crates.io/crates/bevy_ascii_terminal/) crate.
+This repository contains our exam project built with Rust. We used **Bevy**, a game engine for Rust, as the foundation to develop our game.
 
-(You can move with *qweadzxc*, the arrow keys, or the numpad)
+As part of the project, we explored the integration of multiple features:
+- **Database support**: Writing to PostgreSQL, Redis, and MongoDB.
+- **AI integration**: Generating world lore and weapon ideas for players using AI.
 
-to run and compile the game switch to the nightly rust compiler. as we are using some unstable features that are not available on the stable release channel.
-command: 
-```bash
-rustup override set nightly
-```
+Due to the limited timeframe for the exam, we weren't able to fully integrate all features into a single working project. Instead, we separated concerns into multiple repositories:
+
+- **Database integration**: [Rust-Db-Connections](https://github.com/TofuBytes-Studies-Group/Rust-Db-Connections)
+- **AI integration**: [Rust_price_prediction](https://github.com/TofuBytes-Studies-Group/Rust_price_prediction)
+
+Thank you for checking out our work!
