@@ -1,24 +1,22 @@
 use bevy::prelude::*;
 
+use bevy::input::keyboard::{KeyCode};
 use bracket_random::prelude::DiceType;
-use sark_grids::Grid;
+use sark_grids::{Grid, SizedGrid};
 use sark_pathfinding::PathMap2d;
-use crate::{
-    bundle::MovingEntityBundle,
-    map_state::{MapActors, MapObstacles},
-    monster::Monster,
-    movement::{Movement, Position},
-    visibility::{MapMemory, MapView, ViewRange}, events::AttackEvent, turn_system::{TakingATurn, Energy}, combat::{CombatantBundle, HitPoints, MaxHitPoints, Defense, Strength, TargetEvent, ActorEffect, AttackDice}, rng::DiceRng,
-};
+use crate::{bundle::MovingEntityBundle, map_state::{MapActors, MapObstacles}, monster::Monster, movement::{Movement, Position}, visibility::{MapMemory, MapView, ViewRange}, events::AttackEvent, turn_system::{TakingATurn, Energy}, combat::{CombatantBundle, HitPoints, MaxHitPoints, Defense, Strength, TargetEvent, ActorEffect, AttackDice}, rng::DiceRng, AppState};
 
 pub struct PlayerPlugin;
+
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct PlayerSpawnSet;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app
-        .add_startup_system_to_stage(StartupStage::PreStartup, spawn_player)
+        .add_systems(OnEnter(AppState::InGame), spawn_player.in_set(PlayerSpawnSet))
         //.add_startup_system(spawn_player.label(PLAYER_SETUP_LABEL))
-        .add_system_to_stage(CoreStage::PreUpdate, player_input);
+        .add_systems(Update, player_input.run_if(in_state(AppState::InGame)));
 
     }
 }
@@ -26,7 +24,7 @@ impl Plugin for PlayerPlugin {
 fn spawn_player(
     mut commands: Commands
 ) {
-    commands.spawn_bundle(PlayerBundle::default());
+    commands.spawn(PlayerBundle::default());
 }
 
 #[derive(Component, Default, Debug)]
@@ -34,9 +32,9 @@ pub struct Player;
 
 #[derive(Debug, Bundle)]
 pub struct PlayerBundle {
-    #[bundle]
+    #[bundle()]
     pub move_bundle: MovingEntityBundle,
-    #[bundle]
+    #[bundle()]
     pub combatant_bundle: CombatantBundle,
     pub player: Player,
     pub view: MapView,
@@ -65,18 +63,20 @@ impl Default for PlayerBundle {
         }
     }
 }
-
+fn is_in_bounds(grid: &Grid<bool>, pos: IVec2) -> bool {
+    pos.x >= 0 && pos.y >= 0 && (pos.x as usize) < grid.width() && (pos.y as usize) < grid.height()
+}
 fn player_input(
     mut q_player: Query<(Entity, &Strength, &mut Position, &mut Energy, &AttackDice, &mut Movement), (With<Player>, With<TakingATurn>)>,
     q_monsters: Query<&Name, With<Monster>>,
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
     mut obstacles: ResMut<MapObstacles>,
     mut actors: ResMut<MapActors>,
     _event_attack: EventWriter<AttackEvent>,
     mut evt_attack: EventWriter<TargetEvent>,
     mut rng: Local<DiceRng>,
 ) {
-    if let Ok((entity, _attack, mut pos, mut energy, dice, mut movement)) = q_player.get_single_mut() {
+    if let Ok((entity, _attack, mut pos, mut energy, dice, mut movement)) = q_player.single_mut() {
         if read_wait(&input) {
             energy.0 = 0;
             return;
@@ -93,6 +93,9 @@ fn player_input(
 
         // Access the grid inside PathMap2d
         let grid = get_pathmap_grid_mut(&mut obstacles.0);
+        if !is_in_bounds(grid, next) {
+            return;
+        }
 
         if grid[next] {
             if let Some(target) = actors.0[next] {
@@ -126,40 +129,40 @@ fn get_pathmap_grid_mut(map: &mut PathMap2d) -> &mut Grid<bool> {
     }
 }
 
-fn read_movement(input: &Input<KeyCode>) -> IVec2 {
+fn read_movement(input: &ButtonInput<KeyCode>) -> IVec2 {
     let mut p = IVec2::ZERO;
 
-    if input.just_pressed(KeyCode::Numpad1) || input.just_pressed(KeyCode::Z) {
+    if input.just_pressed(KeyCode::Numpad1) || input.just_pressed(KeyCode::KeyZ) {
         p.x = -1;
         p.y = -1;
     }
-    if input.just_pressed(KeyCode::Numpad2) || input.just_pressed(KeyCode::X) || input.just_pressed(KeyCode::Down) {
+    if input.just_pressed(KeyCode::Numpad2) || input.just_pressed(KeyCode::KeyX) || input.just_pressed(KeyCode::ArrowDown) {
         p.y = -1;
     }
-    if input.just_pressed(KeyCode::Numpad3) || input.just_pressed(KeyCode::C) {
+    if input.just_pressed(KeyCode::Numpad3) || input.just_pressed(KeyCode::KeyC) {
         p.x = 1;
         p.y = -1;
     }
-    if input.just_pressed(KeyCode::Numpad4) || input.just_pressed(KeyCode::A) || input.just_pressed(KeyCode::Left) {
+    if input.just_pressed(KeyCode::Numpad4) || input.just_pressed(KeyCode::KeyA) || input.just_pressed(KeyCode::ArrowLeft) {
         p.x = -1;
     }
-    if input.just_pressed(KeyCode::Numpad6) || input.just_pressed(KeyCode::D) || input.just_pressed(KeyCode::Right) {
+    if input.just_pressed(KeyCode::Numpad6) || input.just_pressed(KeyCode::KeyD) || input.just_pressed(KeyCode::ArrowRight) {
         p.x = 1;
     }
-    if input.just_pressed(KeyCode::Numpad7) || input.just_pressed(KeyCode::Q) {
+    if input.just_pressed(KeyCode::Numpad7) || input.just_pressed(KeyCode::KeyQ) {
         p.x = -1;
         p.y = 1;
     }
-    if input.just_pressed(KeyCode::Numpad8) || input.just_pressed(KeyCode::W) || input.just_pressed(KeyCode::Up) {
+    if input.just_pressed(KeyCode::Numpad8) || input.just_pressed(KeyCode::KeyW) || input.just_pressed(KeyCode::ArrowUp) {
         p.y = 1;
     }
-    if input.just_pressed(KeyCode::Numpad9) || input.just_pressed(KeyCode::E) {
+    if input.just_pressed(KeyCode::Numpad9) || input.just_pressed(KeyCode::KeyE) {
         p.x = 1;
         p.y = 1;
     }
     p
 }
 
-fn read_wait(input: &Input<KeyCode>) -> bool {
-    input.just_pressed(KeyCode::Numpad5) || input.just_pressed(KeyCode::LControl) || input.just_pressed(KeyCode::RControl)
+fn read_wait(input: &ButtonInput<KeyCode>) -> bool {
+    input.just_pressed(KeyCode::Numpad5) || input.just_pressed(KeyCode::ControlLeft) || input.just_pressed(KeyCode::ControlRight)
 }

@@ -3,39 +3,37 @@ use bracket_random::prelude::{DiceType};
 use sark_grids::Grid;
 use sark_pathfinding::*;
 use sark_pathfinding::PathMap2d;
-use sark_pathfinding::AStar;
-use sark_pathfinding::PathingMap;
+use controlled_astar::{AStar, node::{Node, Direction}};
+use bevy_ascii_terminal::color;
+
 use astar;
 
-use crate::{
-    bundle::MovingEntityBundle, map_state::{
-        PathBlocker,
-        MapObstacles,
-        MapActors
-    },
-    visibility::{
-        MapView,
-        VIEW_SYSTEM_LABEL,
-        ViewRange
-    },
-    turn_system::{
-        Energy,
-        TakingATurn
-    },
-    combat::{
-        CombatantBundle,
-        HitPoints,
-        MaxHitPoints,
-        Defense, Strength,
-        TargetEvent,
-        ActorEffect, AttackDice
-    }, movement::Position, player::Player, rng::DiceRng};
+use crate::{bundle::MovingEntityBundle, map_state::{
+    PathBlocker,
+    MapObstacles,
+    MapActors
+}, visibility::{
+    MapView,
+    VIEW_SYSTEM_LABEL,
+    ViewRange
+}, turn_system::{
+    Energy,
+    TakingATurn
+}, combat::{
+    CombatantBundle,
+    HitPoints,
+    MaxHitPoints,
+    Defense, Strength,
+    TargetEvent,
+    ActorEffect, AttackDice
+}, movement::Position, player::Player, rng::DiceRng, AppState};
+use crate::visibility::ViewSystemSet;
 
 pub struct MonstersPlugin;
 
 impl Plugin for MonstersPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(monster_ai.after(VIEW_SYSTEM_LABEL));
+        app.add_systems(Update, monster_ai.after(ViewSystemSet).run_if(in_state(AppState::InGame)));
     }
 }
 
@@ -44,9 +42,9 @@ pub struct Monster;
 
 #[derive(Bundle)]
 pub struct MonsterBundle {
-    #[bundle]
+    #[bundle()]
     pub movable: MovingEntityBundle,
-    #[bundle]
+    #[bundle()]
     pub combatant_bundle: CombatantBundle,
     pub monster: Monster,
     pub name: Name,
@@ -58,7 +56,7 @@ pub struct MonsterBundle {
 impl MonsterBundle {
     pub fn new_goblin() -> Self {
         MonsterBundle {
-            movable: MovingEntityBundle::new(Color::RED, 'g', 20),
+            movable: MovingEntityBundle::new(Color::from(color::RED), 'g', 20),
             combatant_bundle: CombatantBundle {
                 hp: HitPoints(15),
                 max_hp: MaxHitPoints(15),
@@ -76,7 +74,7 @@ impl MonsterBundle {
 
     pub fn new_orc() -> Self {
         Self {
-            movable: MovingEntityBundle::new(Color::RED, 'o', 15),
+            movable: MovingEntityBundle::new(Color::from(color::RED), 'o', 15),
             combatant_bundle: CombatantBundle {
                 hp: HitPoints(25),
                 max_hp: MaxHitPoints(25),
@@ -126,9 +124,16 @@ fn monster_ai(
                     grid[*pos] = false;    // Remove the obstacle at monster's position
                     grid[player_pos] = false;  // Remove the obstacle at player's position
                 }
+                // Convert the grid to a HashMap of Nodes for AStar
+                let grid = get_pathmap_grid_mut(&mut obstacles.0);
+                let grid_vec = grid_bool_to_vec_vec_i32(grid);
+                let nodes = Node::grid_to_nodes(&grid_vec);
+                
+                let mut astar = AStar::new(nodes);
 
-                let mut astar = AStar::new(5);
-                if let Some(path) = astar.find_path(&obstacles.0, <[i32; 2]>::from(*pos), <[i32; 2]>::from(player_pos)) {
+                let start = (pos.x as usize, pos.y as usize);
+                let goal = (player_pos.x as usize, player_pos.y as usize);
+                if let Ok(Some(path)) = astar.find_shortest_path(start, goal) {
                     if path.len() == 2 {
                         let damage = rng.roll(dice.0);
                         attack_events.send(TargetEvent {
@@ -136,9 +141,9 @@ fn monster_ai(
                             target: player,
                             effect: ActorEffect::Damage(damage),
                         });
-                    } else {
+                    } else if path.len() > 1{
                         entities.0[*pos] = None;
-                        *pos = IVec2::from(path[1]);
+                        *pos = IVec2::new(path[1].0 as i32, path[1].1 as i32);
                         entities.0[*pos] = Some(entity);
                     }
                 }
@@ -154,6 +159,17 @@ fn monster_ai(
 
         energy.0 = 0;
     }
+}
+
+fn grid_bool_to_vec_vec_i32(grid: &Grid<bool>) -> Vec<Vec<i32>> {
+    let (width, height) = (grid.width(), grid.height());
+    let mut result = vec![vec![0; width]; height];
+    for y in 0..height {
+        for x in 0..width {
+            result[y][x] = if grid[IVec2::new(x as i32, y as i32)] { 1 } else { 0 };
+        }
+    }
+    result
 }
 
 fn get_pathmap_grid_mut(map: &mut PathMap2d) -> &mut Grid<bool> {
