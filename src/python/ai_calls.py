@@ -62,6 +62,7 @@ def generate_weapon(full_name):
 
         weapon_details = parse_generated_text(generated_text)
         weapon_details["Name"] = full_name
+        print("")
         return weapon_details
     except requests.exceptions.RequestException as e:
         print(f"Error connecting to AI API: {e}")

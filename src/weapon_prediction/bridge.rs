@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 use serde::{Deserialize, Serialize};
@@ -17,12 +18,13 @@ pub fn generate_weapon(base_name: &str) -> PyResult<Weapon> {
     pyo3::prepare_freethreaded_python();
 
     Python::with_gil(|py| {
+        let python_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/python");
         let sys = py.import("sys")?;
         sys.getattr("path")?
-            .call_method1("append", ("./python",))?;
-
-        let ai = py.import("ai_calls")?;
-        let predictor = py.import("model_predictor")?;
+            .call_method1("append", (python_path.to_str().unwrap(),))?;
+        
+        let ai = PyModule::import(py, "ai_calls")?;
+        let predictor = PyModule::import(py, "model_predictor")?;
 
         let generate_name = ai.getattr("generate_weapon_name")?;
         let full_name: String = generate_name.call1((base_name,))?.extract()?;
