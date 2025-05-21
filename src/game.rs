@@ -1,10 +1,13 @@
 // game.rs
 // Systems for Lore and InGame states
 
+use bevy::input::ButtonState;
+use bevy::input::keyboard::{Key, KeyboardInput};
 use bevy::prelude::*;
 use bevy_ascii_terminal::{color, StringDecorator, Terminal, TerminalBorder};
 use crate::{AppState, GlobalTerminal, GAME_SIZE, VIEWPORT_SIZE};
 use crate::main_menu::CharacterName;
+use crate::weapon_prediction::bridge::generate_weapon;
 
 // Spawn the Lore (intro) terminal on entering Lore state
 pub fn enter_lore(mut query: Query<&mut Terminal, With<GlobalTerminal>>, character_name: Res<CharacterName>,
@@ -53,6 +56,47 @@ pub fn exit_lore(mut commands: Commands, query: Query<Entity, With<Terminal>>) {
 /*    for e in &query {
         commands.entity(e).despawn();
     }*/
+}
+
+pub fn weapon_generator(mut query: Query<&mut Terminal, With<GlobalTerminal>>, character_name: Res<CharacterName>,
+) {
+    if let Ok(mut term) = query.single_mut() {
+        match generate_weapon(character_name.0.as_str()) {
+            Ok(weapon) => {
+                term.clear();
+                term.resize([50, 30]);
+
+                term.put_string([0, 13], "GENERATED WEAPON".fg(color::LIGHT_GRAY));
+                let w_name = format!("{}", weapon.name);
+                term.put_string([24, 14], w_name.fg(color::GREEN));
+
+                let w_dam = format!("{}", weapon.damage);
+                term.put_string([24, 15], w_dam.fg(color::GREEN));
+
+                let w_weight = format!("{}", weapon.weight);
+                term.put_string([24, 16], w_weight.fg(color::GREEN));
+
+                let w_upgrade = format!("{}", weapon.upgrade);
+                term.put_string([24, 17], w_upgrade.fg(color::GREEN));
+
+                let w_perk = format!("{}", weapon.perk);
+                term.put_string([24, 18], w_perk.fg(color::GREEN));
+
+                let w_type = format!("{}", weapon.weapon_type);
+                term.put_string([24, 19], w_type.fg(color::GREEN));
+
+                let w_price = format!("{:?}", weapon.predicted_price);
+                term.put_string([24, 20], w_price.fg(color::GREEN));
+
+                term.put_string([0, 25], ">>        Press [ENTER] Breach the vault        <<".fg(color::GREEN));
+            }
+            Err(e) => {
+                eprintln!("Failed to generate weapon: {:?}", e);
+            }
+        }
+    } else {
+        warn!("Global terminal not found ENTER LORE");
+    }
 }
 
 // Spawn the InGame terminal on entering InGame state

@@ -55,6 +55,7 @@ pub const TEXT_COLOR: Color = Color::srgb(0.8, 0.8, 0.8);
 
 mod game;
 mod dbs;
+mod weapon_prediction;
 
 // Define the application states
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq, States)]
@@ -67,6 +68,7 @@ enum AppState {
     DisplaySettings,
     SoundSettings,
     Lore,
+    WeaponSetup,
     InGame,
 }
 
