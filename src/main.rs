@@ -56,6 +56,7 @@ pub const TEXT_COLOR: Color = Color::srgb(0.8, 0.8, 0.8);
 mod game;
 mod dbs;
 mod weapon_prediction;
+mod generating_weapon;
 
 // Define the application states
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq, States)]
@@ -68,6 +69,7 @@ enum AppState {
     DisplaySettings,
     SoundSettings,
     Lore,
+    GeneratingWeapon,
     WeaponSetup,
     InGame,
 }
@@ -139,15 +141,19 @@ async fn main() -> Result<(), Error> {
         // Character creation menu
         .add_systems(OnEnter(AppState::CharacterCreation), main_menu::enter_character_creation)
         .add_systems(Update, main_menu::character_creation_input.run_if(in_state(AppState::CharacterCreation)))
-        
+
         // Lore screen
         .add_systems(OnEnter(AppState::Lore), game::enter_lore)
         .add_systems(Update, game::lore_input.run_if(in_state(AppState::Lore)))
         .add_systems(OnExit(AppState::Lore), save_player_after_creation)
         .add_systems(OnExit(AppState::Lore), game::exit_lore)
-        
+
+        .add_systems(OnEnter(AppState::GeneratingWeapon), generating_weapon::start_weapon_generation)
+        .add_systems(Update, generating_weapon::show_loading_screen.run_if(in_state(AppState::GeneratingWeapon)))
+        .add_systems(Update, generating_weapon::poll_weapon_generation.run_if(in_state(AppState::GeneratingWeapon)))
+
         // Weapon setup screen
-        .add_systems(OnEnter(AppState::WeaponSetup), game::weapon_generator)
+        //.add_systems(OnEnter(AppState::WeaponSetup), game::weapon_generator)
 
         // In-game screen
         //.add_systems(OnEnter(AppState::InGame), game::enter_game)

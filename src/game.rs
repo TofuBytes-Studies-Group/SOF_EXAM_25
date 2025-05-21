@@ -48,7 +48,7 @@ pub fn lore_input(
     mut next_state: ResMut<NextState<AppState>>,
 ) {
     if keyboard.just_pressed(KeyCode::Enter) {
-        next_state.set(AppState::InGame);
+        next_state.set(AppState::GeneratingWeapon);
     }
 }
 
@@ -58,7 +58,7 @@ pub fn exit_lore(mut commands: Commands, query: Query<Entity, With<Terminal>>) {
     }*/
 }
 
-pub fn weapon_generator(mut query: Query<&mut Terminal, With<GlobalTerminal>>, character_name: Res<CharacterName>,
+/*pub fn weapon_generator(mut query: Query<&mut Terminal, With<GlobalTerminal>>, character_name: Res<CharacterName>,
 ) {
     if let Ok(mut term) = query.single_mut() {
         match generate_weapon(character_name.0.as_str()) {
@@ -97,7 +97,7 @@ pub fn weapon_generator(mut query: Query<&mut Terminal, With<GlobalTerminal>>, c
     } else {
         warn!("Global terminal not found ENTER LORE");
     }
-}
+}*/
 
 // Spawn the InGame terminal on entering InGame state
 pub fn enter_game(mut query: Query<&mut Terminal, With<GlobalTerminal>>) {
