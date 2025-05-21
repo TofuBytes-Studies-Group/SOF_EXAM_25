@@ -19,9 +19,9 @@ pub struct MapGenSetupSet;
 impl Plugin for MapGenPlugin {
     fn build(&self, app: &mut App) {
         app
-            .configure_sets(OnEnter(AppState::Lore), PlayerSpawnSet)
-            .configure_sets(OnEnter(AppState::Lore), MapGenSetupSet.after(PlayerSpawnSet))
-            .add_systems(OnEnter(AppState::Lore), setup.in_set(MapGenSetupSet));
+            .configure_sets(OnEnter(AppState::WeaponSetup), PlayerSpawnSet)
+            .configure_sets(OnEnter(AppState::WeaponSetup), MapGenSetupSet.after(PlayerSpawnSet))
+            .add_systems(OnEnter(AppState::WeaponSetup), setup.in_set(MapGenSetupSet));
     }
 }
 

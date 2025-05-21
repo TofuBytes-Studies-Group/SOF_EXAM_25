@@ -118,9 +118,6 @@ async fn main() -> Result<(), Error> {
 
         .add_systems(Update, apply_pending_state)
 
-        // Character creation menu
-        .add_systems(OnEnter(AppState::CharacterCreation), main_menu::enter_character_creation)
-        .add_systems(Update, main_menu::character_creation_input.run_if(in_state(AppState::CharacterCreation)))
 
 
 
@@ -139,11 +136,18 @@ async fn main() -> Result<(), Error> {
         .add_systems(Update, main_menu::sound_input.run_if(in_state(AppState::SoundSettings)))
         .add_systems(OnExit(AppState::SoundSettings), main_menu::exit_sound)
 
+        // Character creation menu
+        .add_systems(OnEnter(AppState::CharacterCreation), main_menu::enter_character_creation)
+        .add_systems(Update, main_menu::character_creation_input.run_if(in_state(AppState::CharacterCreation)))
+        
         // Lore screen
         .add_systems(OnEnter(AppState::Lore), game::enter_lore)
         .add_systems(Update, game::lore_input.run_if(in_state(AppState::Lore)))
         .add_systems(OnExit(AppState::Lore), save_player_after_creation)
         .add_systems(OnExit(AppState::Lore), game::exit_lore)
+        
+        // Weapon setup screen
+        .add_systems(OnEnter(AppState::WeaponSetup), game::weapon_generator)
 
         // In-game screen
         //.add_systems(OnEnter(AppState::InGame), game::enter_game)

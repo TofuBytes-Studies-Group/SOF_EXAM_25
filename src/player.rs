@@ -15,7 +15,7 @@ impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app
             .init_resource::<PlayerSpawned>()
-            .add_systems(OnEnter(AppState::Lore), spawn_player.in_set(PlayerSpawnSet))
+            .add_systems(OnEnter(AppState::WeaponSetup), spawn_player.in_set(PlayerSpawnSet))
             .add_systems(Update, player_input.run_if(in_state(AppState::InGame)));
 
     }
