@@ -149,9 +149,17 @@ async fn main() -> Result<(), Error> {
         .add_systems(OnExit(AppState::Lore), game::exit_lore)
 
         .add_systems(OnExit(AppState::Lore), generating_weapon::start_weapon_generation)
-        .add_systems(Update, generating_weapon::show_loading_screen.run_if(in_state(AppState::GeneratingWeapon)))
 
-        .add_systems(Update, generating_weapon::poll_weapon_generation.run_if(in_state(AppState::GeneratingWeapon)))
+        .add_systems(OnEnter(AppState::GeneratingWeapon), generating_weapon::setup_loading_bar)
+        .add_systems(
+                Update,
+                (
+                    generating_weapon::update_loading_bar,
+                    generating_weapon::show_loading_screen,
+                    generating_weapon::poll_weapon_generation,
+                    generating_weapon::wait_then_switch_state,
+                ).run_if(in_state(AppState::GeneratingWeapon)),
+            )
         .add_systems(OnEnter(AppState::WeaponSetup), generating_weapon::display_weapon_info)
         .add_systems(OnExit(AppState::WeaponSetup), generating_weapon::save_weapon_after_creation)
         .add_systems(Update, generating_weapon::weapon_continue_input.run_if(in_state(AppState::WeaponSetup)))

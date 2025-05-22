@@ -26,7 +26,7 @@ impl WeaponDB {
         psql: Arc<Mutex<Client>>, name: &str, damage: i32, weight: f64, upgrade: &str, perk: &str, weapon_type: &str, predicted_price: Option<f64> ) -> Result<WeaponDB, Error> {
         let client = psql.lock().await; // lås klienten
         let row = client.query_one(
-            "INSERT INTO weapon (name, damage, weight, upgrade, perk, weapon_type, predicted_price) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING name, damage, weight, upgrade, perk, weapon_type, predicted_price",
+            "INSERT INTO weapon (name, damage, weight, upgrade, perk, weapon_type, predicted_price) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, name, damage, weight, upgrade, perk, weapon_type, predicted_price",
             &[&name, &damage, &weight, &upgrade, &perk, &weapon_type, &predicted_price],
         ).await?;
 

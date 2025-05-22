@@ -107,7 +107,7 @@ fn handle_print(
         let label_x = bar_x - hp_label.len() as i32 - 1;
 
         term.put_string([label_x, 7], hp_label.fg(color::YELLOW));
-        term.put_string([bar_x, 7], "■".repeat(filled_len).fg(color::RED));
+        term.put_string([bar_x, 7], "█".repeat(filled_len).fg(color::RED));
         term.put_string([bar_x + filled_len as i32, 7], "□".repeat(empty_len).fg(color::DARK_GRAY));
     }
 }
