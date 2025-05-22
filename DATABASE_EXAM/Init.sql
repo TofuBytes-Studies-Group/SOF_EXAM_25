@@ -1,7 +1,12 @@
 CREATE TABLE IF NOT EXISTS weapon (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    weapon_type UUID,
-    damage INT
+    name VARCHAR(100) NOT NULL,
+    damage INT NOT NULL,
+    weight FLOAT NOT NULL,
+    upgrade VARCHAR(100) NOT NULL,
+    perk VARCHAR(100) NOT NULL,
+    weapon_type VARCHAR(50) NOT NULL,
+    predicted_price FLOAT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS inventory (
