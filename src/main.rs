@@ -1,6 +1,8 @@
+use std::sync::Arc;
 use bevy::ecs::spawn::{SpawnWith, SpawnableList};
 use bevy::platform::collections::Equivalent;
 use bevy::prelude::*;
+use bevy::tasks::AsyncComputeTaskPool;
 use bevy::time::{Timer};
 use bevy_ascii_terminal::{
     StringDecorator, Terminal, TerminalBorder, TerminalCamera, TerminalMeshWorldScaling,
@@ -15,11 +17,14 @@ use crate::combat::{Defense, HitPoints, MaxHitPoints, Strength};
 use crate::dbs::playerdb;
 use crate::dbs::playerdb::PlayerDb;
 use crate::dbs::psqldb::Database;
+use crate::dbs::redisdb::RedisDatabase;
+use crate::dbs::mongodb::LoreDatabase;
+
 use crate::main_menu::{apply_pending_state, save_player_after_creation, CharacterName, PendingState, PlayerSaved};
 use crate::player::Player;
-//use crate::lore::lore::setup_lore;
-//use crate::main_menu::{setup, GameState};
-//use crate::main_menu::game::game_setup;
+use bevy_async_task::*;
+use tokio::runtime::Runtime;
+use crate::game::poll_lore_save_task;
 
 mod PathMap2dExt;
 mod bundle;
@@ -74,12 +79,25 @@ enum AppState {
     InGame,
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Error> {
-    let psql = Database::connect().await.expect("Failed to connect to the database");
+#[derive(Resource)]
+struct TokioHandle(Arc<Runtime>);
+ fn main() -> Result<(), Error> {
 
+     let rt = Runtime::new().expect("Failed to create Tokio runtime");
+     let rt_handle = Arc::new(rt);
+
+     let psql: Database = rt_handle
+         .block_on(Database::connect())
+         .expect("Postgres init failed");
+     let redis: RedisDatabase = rt_handle
+         .block_on(RedisDatabase::new("redis://127.0.0.1/"))
+         .expect("Redis init failed");
+     let mongodb: LoreDatabase = rt_handle
+         .block_on(LoreDatabase::new("mongodb://localhost:60000"))
+         .expect("MongoDB init failed");
 
     App::new()
+        .insert_resource(TokioHandle(rt_handle.clone()))
         // Standard Bevy and ASCII-terminal plugins
         .add_plugins((DefaultPlugins, TerminalPlugins))
         .add_plugins(EguiPlugin { enable_multipass_for_primary_context: true })
@@ -100,7 +118,9 @@ async fn main() -> Result<(), Error> {
         .insert_resource(CharacterName::default())
 
         .insert_resource(psql)
+        .insert_resource(redis)
         .insert_resource(PlayerSaved::default())
+        .insert_resource(mongodb)
 
 
         .add_systems(Startup, setup_camera)
@@ -145,6 +165,7 @@ async fn main() -> Result<(), Error> {
         // Lore screen
         .add_systems(OnEnter(AppState::Lore), game::enter_lore)
         .add_systems(Update, game::lore_input.run_if(in_state(AppState::Lore)))
+        .add_systems(Update, poll_lore_save_task.run_if(in_state(AppState::Lore)))
         .add_systems(OnExit(AppState::Lore), save_player_after_creation)
         .add_systems(OnExit(AppState::Lore), game::exit_lore)
 

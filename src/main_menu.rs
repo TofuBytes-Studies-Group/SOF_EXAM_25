@@ -1,6 +1,7 @@
 // menu.rs
 // Systems for MainMenu and SettingsMenu (and submenus)
 
+use std::sync::Arc;
 use bevy::input::ButtonState;
 use bevy::input::keyboard::{Key, KeyboardInput};
 use bevy::prelude::*;
@@ -10,6 +11,7 @@ use crate::combat::{Defense, HitPoints, MaxHitPoints, Strength};
 use crate::dbs::playerdb;
 use crate::dbs::playerdb::PlayerDb;
 use crate::dbs::psqldb::Database;
+use crate::dbs::redisdb::RedisDatabase;
 use crate::player::Player;
 
 #[derive(Component)]
@@ -134,6 +136,7 @@ pub fn save_player_after_creation(
     char_name: Res<CharacterName>,
     player_query: Query<(&HitPoints, &MaxHitPoints, &Defense, &Strength), With<Player>>,
     psql: Res<Database>,
+    redis: Res<RedisDatabase>,
 ) {
     if saved.0 {
         return; // Already saved
@@ -142,7 +145,7 @@ pub fn save_player_after_creation(
     if let Ok((hp, max_hp, defense, strength)) = player_query.single() {
         saved.0 = true; // Mark as saved
 
-        let record = playerdb::PlayerDb {
+        let record = PlayerDb {
             id: Default::default(),
             name: char_name.0.clone(),
             hp: hp.0,
@@ -153,9 +156,10 @@ pub fn save_player_after_creation(
         };
 
         let db_client = psql.client.clone();
+        let redis = redis.clone();
 
         bevy::tasks::IoTaskPool::get().spawn(async move {
-            match PlayerDb::create(db_client, &record.name, record.hp, record.max_hp, record.defense, record.strength).await {
+            match PlayerDb::create(db_client, Arc::from(redis), &record.name, record.hp, record.max_hp, record.defense, record.strength).await {
                 Ok(p) => println!("!!! Saved player to DB: {:?}", p),
                 Err(e) => eprintln!(">>X<< Failed to save player: {}", e),
             }

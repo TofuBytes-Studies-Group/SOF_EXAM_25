@@ -1,46 +1,114 @@
 // game.rs
 // Systems for Lore and InGame states
 
+use std::sync::Arc;
 use bevy::input::ButtonState;
 use bevy::input::keyboard::{Key, KeyboardInput};
 use bevy::prelude::*;
+use bevy::tasks::{AsyncComputeTaskPool, Task};
 use bevy_ascii_terminal::{color, StringDecorator, Terminal, TerminalBorder};
-use crate::{AppState, GlobalTerminal, GAME_SIZE, VIEWPORT_SIZE};
+use runtime::Runtime;
+use serde::Serialize;
+use crate::{AppState, GlobalTerminal, TokioHandle, GAME_SIZE, VIEWPORT_SIZE};
+use crate::dbs::mongodb::{LoreDatabase, LoreEntry};
 use crate::main_menu::CharacterName;
 use crate::weapon_prediction::bridge::generate_weapon;
+use serde_json::json;
+use tokio::runtime;
 
-// Spawn the Lore (intro) terminal on entering Lore state
-pub fn enter_lore(mut query: Query<&mut Terminal, With<GlobalTerminal>>, character_name: Res<CharacterName>,
+#[derive(Resource)]
+pub struct SaveLoreTask(Task<Result<(), anyhow::Error>>);
+
+
+pub fn enter_lore(
+    mut commands: Commands,
+    mut query: Query<&mut Terminal, With<GlobalTerminal>>,
+    character_name: Res<CharacterName>,
+    lore_db: Res<LoreDatabase>,
+    tokio_handle: Res<TokioHandle>,
 ) {
     if let Ok(mut term) = query.single_mut() {
         term.clear();
-        term.resize([50,30]);
-        term.put_string([0, 2],  "================ < LORE ARCHIVE > ================".fg(color::YELLOW));
-        term.put_string([0, 4],  ":: FILE: DNK-34 // PROTOCOL STATUS: ACTIVE        ".fg(color::LIGHT_GREEN));
-        term.put_string([0, 6],  "==================================================".fg(color::WHITE));
-        term.put_string([0, 8],  "Beneath the stone of the Northern Reach ".fg(color::LIGHT_GRAY));
-        term.put_string([0, 9],  "lies the forgotten fortress-vault DNK-34.".fg(color::LIGHT_GRAY));
-        term.put_string([0, 10], "Forged by Iron-Priests in an age of steam and rune".fg(color::LIGHT_GRAY));
-        term.put_string([0, 11], "its halls are now ruled by rust-caked automatons".fg(color::LIGHT_GRAY));
-        term.put_string([0, 12], "following the last order ever issued:".fg(color::LIGHT_GRAY));
-        term.put_string([0, 13], "              **DENY ALL INTRUDERS**              ".fg(color::LIGHT_GRAY));
-        term.put_string([0, 14], "Within lie arsenals of brass lightning,".fg(color::LIGHT_GRAY));
-        term.put_string([0, 15], "tomes of forbidden craft, and the reactor-heart".fg(color::LIGHT_GRAY));
-        term.put_string([0, 16], "whose ash still powers the iron guardians...".fg(color::LIGHT_GRAY));
-        term.put_string([0, 17], "and as all others before them has failed..".fg(color::LIGHT_GRAY));
-        term.put_string([0, 18], "fallen to the horrors of what lies beyond..".fg(color::LIGHT_GRAY));
-        term.put_string([0, 19], "a new soul rises up to the challenge..".fg(color::LIGHT_GRAY));
-        term.put_string([0, 20], "in a attempt to uncover the secrets of the vault.".fg(color::LIGHT_GRAY));
-        term.put_string([0, 22], "a Hero only known as:".fg(color::LIGHT_GRAY));
+        term.resize([50, 30]);
+        // Define the lore lines as static
+        let lines: Vec<&'static str> = vec![
+            "================ < LORE ARCHIVE > ================",
+            "",
+            ":: FILE: DNK-34 // PROTOCOL STATUS: ACTIVE        ",
+            "",
+            "==================================================",
+            "",
+            "Beneath the stone of the Northern Reach ",
+            "lies the forgotten fortress-vault DNK-34.",
+            "Forged by Iron-Priests in an age of steam and rune",
+            "its halls are now ruled by rust-caked automatons",
+            "following the last order ever issued:",
+            "              **DENY ALL INTRUDERS**              ",
+            "Within lie arsenals of brass lightning,",
+            "tomes of forbidden craft, and the reactor-heart",
+            "whose ash still powers the iron guardians...",
+            "and as all others before them has failed..",
+            "fallen to the horrors of what lies beyond..",
+            "a new soul rises up to the challenge..",
+            "in a attempt to uncover the secrets of the vault.",
+            "",
+            "a Hero only known as:",
+        ];
+
+        // Print to terminal
+        for (i, line) in lines.iter().enumerate() {
+            term.put_string([0, (i + 2) as i32], line.fg(color::LIGHT_GRAY));
+        }
 
         let name_display = format!("{}", character_name.0);
         term.put_string([21, 22], name_display.fg(color::GREEN));
 
         term.put_string([0, 25], ">>        Press [ENTER] Breach the vault        <<".fg(color::GREEN));
-    } else {
+
+        // --- Save LORE to MongoDB as JSON ---
+
+        let lore_entry = crate::dbs::mongodb::LoreEntry {
+            id: None,
+            character_name: character_name.0.clone(),
+            world_lore_lines: lines.iter().map(|s| s.to_string()).collect(),
+            timestamp: chrono::Utc::now().to_rfc3339(),
+        };
+
+        let db = lore_db.clone();
+
+        let task_pool = AsyncComputeTaskPool::get();
+
+        let fut = async move {
+            db
+                .create_lore_entry(lore_entry)
+                .await
+                .map_err(|e| anyhow::Error::new(e))
+        };
+        // This ensures the Mongo call runs in a Tokio reactor, not Bevy’s CPU thread:
+        tokio_handle.0.spawn(fut);
+
+
+    }else {
         warn!("Global terminal not found ENTER LORE");
     }
 }
+
+pub fn poll_lore_save_task(
+    mut commands: Commands,
+    mut task_res: Option<ResMut<SaveLoreTask>>,
+) {
+    if let Some(mut task_res) = task_res {
+        if let Some(result) = futures_lite::future::block_on(futures_lite::future::poll_once(&mut task_res.0)) {
+            match result {
+                Ok(_) => info!("Lore saved successfully."),
+                Err(e) => error!("Failed to save lore: {:?}", e),
+            }
+            // Fjern resource når task er færdig
+            commands.remove_resource::<SaveLoreTask>();
+        }
+    }
+}
+
 
 // Handle input in the Lore state
 pub fn lore_input(

@@ -5,6 +5,7 @@ use tokio_postgres::{Client, Error};
 use uuid::Uuid;
 use crate::dbs::psqldb;
 pub(crate) use crate::dbs::psqldb::Database;
+use crate::dbs::redisdb::{RedisDatabase};
 
 #[derive(Debug)]
 pub struct PlayerDb {
@@ -19,14 +20,23 @@ pub struct PlayerDb {
 
 impl PlayerDb {
     pub async fn create(
-        psql: Arc<Mutex<Client>>, name: &str, hp: i32, max_hp: i32, defense: i32, strength: i32, ) -> Result<PlayerDb, Error> {
-        let client = psql.lock().await; // lås klienten
+        psql: Arc<Mutex<Client>>,
+        redis: Arc<RedisDatabase>,
+        name: &str,
+        hp: i32,
+        max_hp: i32,
+        defense: i32,
+        strength: i32,
+    ) -> Result<PlayerDb, Error> {
+        let client = psql.lock().await;
         let row = client.query_one(
-            "INSERT INTO player (name, hp, max_hp, defense, strength) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, hp, max_hp, defense, strength, inventory_id",
+            "INSERT INTO player (name, hp, max_hp, defense, strength)
+             VALUES ($1, $2, $3, $4, $5)
+             RETURNING id, name, hp, max_hp, defense, strength, inventory_id",
             &[&name, &hp, &max_hp, &defense, &strength],
         ).await?;
 
-        Ok(PlayerDb {
+        let player = PlayerDb {
             id: row.get(0),
             name: row.get(1),
             hp: row.get(2),
@@ -34,6 +44,11 @@ impl PlayerDb {
             defense: row.get(4),
             strength: row.get(5),
             inventory_id: row.get(6),
-        })
+        };
+
+        // players defaut score on creation: 0 kills
+        let _ = redis.add_member("scoreboard", &player.name, 0.0).await; // Kills set to 0 on creation as a Placeholder
+        
+        Ok(player)
     }
 }
