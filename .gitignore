@@ -130,4 +130,12 @@ Cargo.lock
 # MSVC Windows builds of rustc generate these, which store debugging information
 *.pdb
 
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+python/models/*.pkl
+*.ipynb_checkpoints/
+.env
+
 # End of https://www.toptal.com/developers/gitignore/api/rust,jetbrains

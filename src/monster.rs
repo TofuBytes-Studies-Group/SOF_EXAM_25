@@ -33,7 +33,7 @@ pub struct MonstersPlugin;
 
 impl Plugin for MonstersPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, monster_ai.after(ViewSystemSet).run_if(in_state(AppState::Lore)));
+        app.add_systems(Update, monster_ai.after(ViewSystemSet).run_if(in_state(AppState::WeaponSetup)));
     }
 }
 
