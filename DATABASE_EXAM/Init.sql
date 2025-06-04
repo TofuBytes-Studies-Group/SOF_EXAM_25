@@ -2,7 +2,7 @@
 
 CREATE TABLE IF NOT EXISTS weapon (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(100) NOT NULL UNIQUE,
+    name VARCHAR(100) NOT NULL,
     damage INT NOT NULL,
     weight FLOAT NOT NULL,
     upgrade VARCHAR(100) NOT NULL,
@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS weapon_inventory (
 
 CREATE TABLE IF NOT EXISTS player (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(100) NOT NULL,
+    name VARCHAR(100) NOT NULL UNIQUE,
     hp INT NOT NULL,
     max_hp INT NOT NULL,
     defense INT NOT NULL,
@@ -75,11 +75,11 @@ RETURNS TABLE (
 BEGIN
     RETURN QUERY
     SELECT
-        p.name,
-        p.hp,
-        p.max_hp,
-        p.defense,
-        p.strength,
+        pl.name,
+        pl.hp,
+        pl.max_hp,
+        pl.defense,
+        pl.strength,
         i.gold,
         w.name,
         w.damage,
@@ -88,11 +88,11 @@ BEGIN
         w.perk,
         w.weapon_type,
         w.predicted_price
-    FROM player p
-    JOIN inventory i ON p.inventory_id = i.id
+    FROM player pl
+    JOIN inventory i ON pl.inventory_id = i.id
     LEFT JOIN weapon_inventory wi ON i.id = wi.inventory_id
     LEFT JOIN weapon w ON wi.weapon_id = w.id
-    WHERE p.name = p_name;
+    WHERE pl.name = p_name;
 END;
 $$ LANGUAGE plpgsql;
 
