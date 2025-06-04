@@ -1,3 +1,5 @@
+#![feature(let_chains)]
+
 use std::sync::Arc;
 use bevy::ecs::spawn::{SpawnWith, SpawnableList};
 use bevy::platform::collections::Equivalent;
@@ -20,7 +22,7 @@ use crate::dbs::psqldb::Database;
 use crate::dbs::redisdb::RedisDatabase;
 use crate::dbs::mongodb::LoreDatabase;
 
-use crate::main_menu::{apply_pending_state, save_player_after_creation, CharacterName, PendingState, PlayerSaved};
+use crate::main_menu::{apply_pending_state, draw_player_name_list, player_statistics_input, save_player_after_creation, update_player_name_list, update_player_statistics_ui, CharacterName, PendingState, PlayerNameList, PlayerNameListPending, PlayerSaved, PlayerStatsDisplay, PlayerStatsPending, SelectedPlayer};
 use crate::player::Player;
 use bevy_async_task::*;
 use tokio::runtime::Runtime;
@@ -70,6 +72,8 @@ enum AppState {
     Splash,
     MainMenu,
     CharacterCreation,
+    SelectPlayer,
+    PlayerStatistics,
     SettingsMenu,
     DisplaySettings,
     SoundSettings,
@@ -116,6 +120,11 @@ struct TokioHandle(Arc<Runtime>);
         // GAME PLUGINS END
         .insert_resource(PendingState::default())
         .insert_resource(CharacterName::default())
+        .insert_resource(PlayerStatsDisplay::default())
+        .insert_resource(PlayerStatsPending::default())
+        .insert_resource(PlayerNameList::default())
+        .insert_resource(PlayerNameListPending::default())
+        .insert_resource(SelectedPlayer::default())
 
         .insert_resource(psql)
         .insert_resource(redis)
@@ -140,7 +149,18 @@ struct TokioHandle(Arc<Runtime>);
 
         .add_systems(Update, apply_pending_state)
 
+        // PlayerStatistics State systems
+        .add_systems(OnEnter(AppState::PlayerStatistics), main_menu::enter_player_statistics)
+        .add_systems(Update, update_player_statistics_ui.run_if(in_state(AppState::PlayerStatistics)))
+        .add_systems(Update, player_statistics_input.run_if(in_state(AppState::PlayerStatistics)))
 
+        // Player selection screen systems
+        .add_systems(OnEnter(AppState::SelectPlayer), main_menu::enter_select_player)
+        .add_systems(Update,
+                     (update_player_name_list, draw_player_name_list,)
+                         .chain()
+                         .run_if(in_state(AppState::SelectPlayer)))
+        .add_systems(Update, main_menu::select_player_input.run_if(in_state(AppState::SelectPlayer)))
 
 
         // Settings menu
@@ -156,7 +176,6 @@ struct TokioHandle(Arc<Runtime>);
         // Sound Settings submenu
         .add_systems(OnEnter(AppState::SoundSettings), main_menu::enter_sound)
         .add_systems(Update, main_menu::sound_input.run_if(in_state(AppState::SoundSettings)))
-        .add_systems(OnExit(AppState::SoundSettings), main_menu::exit_sound)
 
         // Character creation menu
         .add_systems(OnEnter(AppState::CharacterCreation), main_menu::enter_character_creation)

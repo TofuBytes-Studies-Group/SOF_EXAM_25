@@ -20,6 +20,16 @@ pub struct WeaponDB {
     pub weapon_type: String,
     pub predicted_price: Option<f64>,
 }
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct WeaponDBNoID {
+    pub name: String,
+    pub damage: i32,
+    pub weight: f64,
+    pub upgrade: String,
+    pub perk: String,
+    pub weapon_type: String,
+    pub predicted_price: Option<f64>,
+}
 
 impl WeaponDB {
     pub async fn create_weapon(
