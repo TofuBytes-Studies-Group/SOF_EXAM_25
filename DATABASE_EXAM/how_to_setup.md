@@ -18,7 +18,7 @@ rs.initiate({
   ]
 })
 
-when that is done make sure there is a primary and two secondary server (you might need to exec out and in again or esc then enter)
+when that is done make sure there is a primary and two secondary servers (you might need to exec out and in again or esc then enter)
 
 rs.status()
 
