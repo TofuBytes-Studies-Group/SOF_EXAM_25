@@ -13,11 +13,12 @@ rs.initiate({
   configsvr: true,
   members: [
     { _id: 0, host: "cfgsvr1:27017" },
-    { _id: 1, host: "cfgsvr2:27017" }
+    { _id: 1, host: "cfgsvr2:27017" },
+    { _id: 2, host: "cfgsvr3:27017" }
   ]
 })
 
-when that is done make sure there is a primary and a secondary server (you might need to exec out and in again or esc then enter)
+when that is done make sure there is a primary and two secondary servers (you might need to exec out and in again or esc then enter)
 
 rs.status()
 
